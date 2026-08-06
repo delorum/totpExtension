@@ -6,6 +6,16 @@ A small Manifest V3 browser extension that keeps TOTP credentials locally, assoc
 
 It was created for authentication pages where repeatedly opening a phone authenticator is inconvenient. When a TOTP credential is associated with the current hostname, the extension shows a green `✓` badge and offers the current code near a detected verification field. Codes can also be selected from the toolbar popup.
 
+## Screenshots
+
+The extension can show the current TOTP code next to a detected two-factor authentication field:
+
+![TOTP suggestion next to a GitHub two-factor authentication field](docs/images/inline-suggestion.png)
+
+The toolbar popup lists the credentials associated with the current hostname:
+
+![Extension popup showing an associated GitHub TOTP credential](docs/images/toolbar-popup.png)
+
 ## Features
 
 - Import a Yandex Key JSON backup containing `name`, `secret`, and `techInfo` fields.
