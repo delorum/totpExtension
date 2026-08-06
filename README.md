@@ -28,6 +28,8 @@ It was created for authentication pages where repeatedly opening a phone authent
 5. Open the extension settings and import a backup or add an `otpauth://totp` URI.
 6. Associate a credential with the required exact hostname, for example `esia.gosuslugi.ru`.
 
+The easiest way to create an association is directly from the website page that displays the one-time-code form: open the extension popup and select **Associate a credential with this website**. The exact hostname of that page will be filled in automatically.
+
 After modifying the source, reload the extension on `browser://extensions` and refresh open website tabs.
 
 ## Import and export
