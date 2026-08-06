@@ -91,29 +91,37 @@ function entryRow(entry) {
 }
 
 $("#file").onchange = e => importFile(e.target.files[0]).catch(err => $("#status").textContent = `Ошибка: ${err.message}`);
-$("#single").oninput = () => {
+let pendingEntry = null;
+
+$("#add-single").onclick = () => {
   try {
-    const entry = entryFromUri($("#single").value);
-    $("#single-issuer").value = entry.issuer;
-    $("#single-name").value = entry.name;
-    $("#status").textContent = "Ссылка распознана";
-  } catch (_) {
-    $("#single-issuer").value = "";
-    $("#single-name").value = "";
-  }
+    pendingEntry = entryFromUri($("#single").value);
+    $("#confirm-issuer").value = pendingEntry.issuer;
+    $("#confirm-name").value = pendingEntry.name;
+    $("#confirm-entry").showModal();
+  } catch (err) { $("#status").textContent = `Ошибка: ${err.message}`; }
 };
-$("#add-single").onclick = async () => {
+
+$("#cancel-entry").onclick = () => {
+  pendingEntry = null;
+  $("#confirm-entry").close();
+};
+
+$("#confirm-entry").oncancel = () => { pendingEntry = null; };
+
+$("#save-entry").onclick = async () => {
+  if (!pendingEntry) return;
   try {
-    const entry = entryFromUri($("#single").value);
-    entry.issuer = $("#single-issuer").value.trim() || entry.issuer;
-    entry.name = $("#single-name").value.trim() || entry.name;
+    const entry = pendingEntry;
+    entry.issuer = $("#confirm-issuer").value.trim() || entry.issuer;
+    entry.name = $("#confirm-name").value.trim() || entry.name;
     const { entries = [] } = await chrome.storage.local.get("entries");
     if (entries.some(item => item.secret === entry.secret && item.name === entry.name)) throw new Error("Такая запись уже существует");
     entries.push(entry);
     await chrome.storage.local.set({ entries });
     $("#single").value = "";
-    $("#single-issuer").value = "";
-    $("#single-name").value = "";
+    pendingEntry = null;
+    $("#confirm-entry").close();
     $("#status").textContent = `Добавлен TOTP: ${entry.issuer || entry.name}`;
     render();
   } catch (err) { $("#status").textContent = `Ошибка: ${err.message}`; }
