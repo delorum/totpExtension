@@ -37,10 +37,11 @@ The toolbar popup lists the credentials associated with the current hostname:
 2. Open `browser://extensions`.
 3. Enable Developer mode.
 4. Select **Load unpacked extension** and choose the repository directory.
-5. Open the extension settings and import a backup or add an `otpauth://totp` URI.
-6. Associate a credential with the required exact hostname, for example `esia.gosuslugi.ru`.
+5. Open the extension settings and create a master password.
+6. Import a protected backup or add an `otpauth://totp` URI.
+7. Associate a credential with the required exact hostname, for example `esia.gosuslugi.ru`.
 
-On the first run after installation or upgrade, open the settings and create a master password. Existing plaintext credentials from an earlier version are encrypted during this migration. There are no password-complexity requirements, but a strong unique password is recommended. A forgotten master password cannot be recovered; restore the database by importing a backup into a fresh vault.
+On the first run, open the settings and create a master password before importing or adding TOTP credentials. The credentials are encrypted before they are saved in the vault. There are no password-complexity requirements, but a strong unique password is recommended. A forgotten master password cannot be recovered; create a new vault and restore the database from a protected backup.
 
 The easiest way to create an association is directly from the website page that displays the one-time-code form: open the extension popup and select **Associate a credential with this website**. The exact hostname of that page will be filled in automatically.
 
