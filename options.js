@@ -166,16 +166,26 @@ if (requestedDomain) $("#domain").value = requestedDomain;
 async function securityAction(action) {
   const status = $("#security-status");
   status.textContent = "";
+  status.classList.remove("success");
   try {
     await action();
     await render();
-  } catch (err) { status.textContent = `Ошибка: ${err.message}`; }
+  } catch (err) {
+    status.classList.remove("success");
+    status.textContent = `Ошибка: ${err.message}`;
+  }
+}
+
+function securitySuccess(message) {
+  const status = $("#security-status");
+  status.classList.add("success");
+  status.textContent = message;
 }
 
 $("#setup-vault").onclick = () => securityAction(async () => {
   await call({ type: "setup-vault", password: $("#setup-password").value });
   $("#setup-password").value = "";
-  $("#security-status").textContent = "Мастер-пароль создан, существующая база зашифрована";
+  securitySuccess("Мастер-пароль создан, существующая база зашифрована");
 });
 $("#options-unlock").onclick = () => securityAction(async () => {
   await call({ type: "unlock-vault", password: $("#options-password").value });
@@ -185,13 +195,13 @@ $("#options-password").onkeydown = event => { if (event.key === "Enter") $("#opt
 $("#lock-now").onclick = () => securityAction(() => call({ type: "lock-vault" }));
 $("#save-timeout").onclick = () => securityAction(async () => {
   await call({ type: "set-lock-minutes", minutes: Number($("#lock-minutes").value) });
-  $("#security-status").textContent = "Время автоблокировки сохранено";
+  securitySuccess("Время автоблокировки сохранено");
 });
 $("#change-password").onclick = () => securityAction(async () => {
   await call({ type: "change-password", currentPassword: $("#current-password").value, newPassword: $("#new-password").value });
   $("#current-password").value = "";
   $("#new-password").value = "";
-  $("#security-status").textContent = "Мастер-пароль изменён";
+  securitySuccess("Мастер-пароль изменён");
 });
 
 chrome.runtime.onMessage.addListener(message => { if (message.type === "vault-state-changed") render().catch(() => {}); });
