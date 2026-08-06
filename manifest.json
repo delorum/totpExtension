@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "TOTP Подстановка",
+  "version": "0.1.0",
+  "description": "Локальное хранение и подстановка одноразовых TOTP-кодов.",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Подставить TOTP-код"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["totp.js", "content.js"],
+    "run_at": "document_idle",
+    "all_frames": true
+  }]
+}

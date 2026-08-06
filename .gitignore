@@ -1,0 +1,11 @@
+# TOTP backup files contain plaintext secrets and must never be committed.
+key_backup*.txt
+totp_backup*.json
+*.pem
+*.key
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+.DS_Store

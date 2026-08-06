@@ -1,0 +1,65 @@
+# TOTP Autofill for Yandex Browser
+
+[Русская версия](README.ru.md)
+
+A small Manifest V3 browser extension that keeps TOTP credentials locally, associates them with exact website hostnames, and makes one-time codes easy to enter.
+
+It was created for authentication pages where repeatedly opening a phone authenticator is inconvenient. When a TOTP credential is associated with the current hostname, the extension shows a green `✓` badge and offers the current code near a detected verification field. Codes can also be selected from the toolbar popup.
+
+## Features
+
+- Import a Yandex Key JSON backup containing `name`, `secret`, and `techInfo` fields.
+- Add one credential from an `otpauth://totp/...` URI.
+- Edit the local service and account labels without changing generated codes.
+- Export standard TOTP credentials to the same JSON format accepted by file import.
+- Associate one or more credentials with exact hostnames.
+- Detect a single verification input or a group of 3–10 one-character inputs.
+- Display the code near a detected field and fill it on click.
+- Show a green toolbar badge when a credential is available for the current hostname.
+- Run field detection only on hostnames that have an association.
+- Generate SHA-1, SHA-256, and SHA-512 TOTP codes locally with the Web Crypto API.
+
+## Install in Yandex Browser
+
+1. Clone or download this repository.
+2. Open `browser://extensions`.
+3. Enable Developer mode.
+4. Select **Load unpacked extension** and choose the repository directory.
+5. Open the extension settings and import a backup or add an `otpauth://totp` URI.
+6. Associate a credential with the required exact hostname, for example `esia.gosuslugi.ru`.
+
+After modifying the source, reload the extension on `browser://extensions` and refresh open website tabs.
+
+## Import and export
+
+File import accepts a JSON array compatible with a Yandex Key export:
+
+```json
+[
+  {
+    "name": "account@example.com",
+    "secret": "BASE32_SECRET",
+    "techInfo": "otpauth://totp/Example:account%40example.com?secret=BASE32_SECRET&issuer=Example"
+  }
+]
+```
+
+Export produces the same structure. The proprietary `otpauth://yaotp` scheme is not standard TOTP and is deliberately excluded from export and code generation.
+
+## Security model
+
+- Credentials are stored in `chrome.storage.local` in the browser profile.
+- TOTP calculation happens locally; the extension does not make network requests.
+- A code is written into the page only after the user clicks the suggestion or popup entry.
+- Storage is **not encrypted by this extension**. A user or malicious program with access to the browser profile may be able to read the secrets.
+- Imported and exported backup files contain plaintext TOTP secrets and should be protected like passwords or recovery codes.
+
+Using the same standard TOTP secret in this extension and a phone authenticator does not invalidate either copy. Both independently calculate the same time-based code. Removing or rotating the TOTP credential on the service itself will invalidate all copies.
+
+## Browser compatibility
+
+The extension targets Chromium Manifest V3 and is developed for Yandex Browser. It may also work in other Chromium-based browsers, but they are not currently tested.
+
+## License
+
+No license has been selected yet. All rights are reserved by the repository owner.
