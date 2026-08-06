@@ -2,7 +2,7 @@ const $ = s => document.querySelector(s);
 
 async function call(message) {
   const response = await chrome.runtime.sendMessage(message);
-  if (!response?.ok) throw new Error(response?.error || "Ошибка расширения");
+  if (!response?.ok) throw new Error(response?.error || "unknown_request");
   return response.result;
 }
 
@@ -19,7 +19,7 @@ function parseEntry(raw, index) {
   const type = url?.hostname === "totp" ? "totp" : "unsupported";
   const label = url ? decodeURIComponent(url.pathname.slice(1)) : raw.name;
   return {
-    id: crypto.randomUUID(), type, name: raw.name || label || `Код ${index + 1}`,
+    id: crypto.randomUUID(), type, name: raw.name || label || `TOTP ${index + 1}`,
     issuer: url?.searchParams.get("issuer") || label?.split(":")[0] || "",
     secret: raw.secret || url?.searchParams.get("secret") || "",
     algorithm: (url?.searchParams.get("algorithm") || "SHA1").toUpperCase(),
@@ -33,7 +33,7 @@ function entryFromUri(uri) {
   const value = uri.trim();
   const url = new URL(value);
   if (url.protocol !== "otpauth:" || url.hostname !== "totp" || !url.searchParams.get("secret")) {
-    throw new Error("Нужна ссылка otpauth://totp с параметром secret");
+    throw new Error("uri_required");
   }
   const label = decodeURIComponent(url.pathname.slice(1));
   const separator = label.indexOf(":");
@@ -56,10 +56,10 @@ function entryUri(entry) {
 
 async function importFile(file) {
   const json = JSON.parse(await file.text());
-  if (!Array.isArray(json)) throw new Error("Ожидался JSON-массив");
+  if (!Array.isArray(json)) throw new Error("expected_array");
   const entries = json.map(parseEntry).filter(e => e.secret);
   await call({ type: "save-entries", entries });
-  setFeedback("#status", `Импортировано: ${entries.filter(e => e.type === "totp").length}; неподдерживаемых: ${entries.filter(e => e.type !== "totp").length}`, "success");
+  setFeedback("#status", t("import_result", { supported: entries.filter(e => e.type === "totp").length, unsupported: entries.filter(e => e.type !== "totp").length }), "success");
   await render();
 }
 
@@ -81,9 +81,9 @@ async function render() {
     return ids.map(id => {
     const div = document.createElement("div"); div.className = "row";
     const linked = byId[id];
-    const label = linked ? [linked.issuer, linked.name].filter(Boolean).join(" — ") : "удалённый код";
+    const label = linked ? [linked.issuer, linked.name].filter(Boolean).join(" — ") : t("removed_code");
     const text = document.createElement("span"); text.textContent = `${domain} → ${label}`;
-    const del = document.createElement("button"); del.textContent = "Удалить"; del.onclick = async () => {
+    const del = document.createElement("button"); del.textContent = t("delete"); del.onclick = async () => {
       const remaining = ids.filter(item => item !== id);
       if (remaining.length) bindings[domain] = remaining; else delete bindings[domain];
       await chrome.storage.local.set({ bindings }); render();
@@ -96,13 +96,13 @@ async function render() {
 function entryRow(entry) {
   const div = document.createElement("div"); div.className = "row entry-row";
   const text = document.createElement("span");
-  text.textContent = `${entry.issuer || "Без сервиса"} — ${entry.name}${entry.type === "totp" ? "" : " (yaotp: не поддерживается)"}`;
-  const edit = document.createElement("button"); edit.textContent = "Изменить";
+  text.textContent = `${entry.issuer || t("no_service")} — ${entry.name}${entry.type === "totp" ? "" : t("unsupported_yaotp")}`;
+  const edit = document.createElement("button"); edit.textContent = t("edit");
   edit.onclick = () => {
-    const issuer = document.createElement("input"); issuer.value = entry.issuer || ""; issuer.placeholder = "Сервис";
-    const name = document.createElement("input"); name.value = entry.name || ""; name.placeholder = "Имя";
-    const save = document.createElement("button"); save.textContent = "Сохранить"; save.className = "save";
-    const cancel = document.createElement("button"); cancel.textContent = "Отмена";
+    const issuer = document.createElement("input"); issuer.value = entry.issuer || ""; issuer.placeholder = t("service");
+    const name = document.createElement("input"); name.value = entry.name || ""; name.placeholder = t("account_name");
+    const save = document.createElement("button"); save.textContent = t("save"); save.className = "save";
+    const cancel = document.createElement("button"); cancel.textContent = t("cancel");
     save.onclick = async () => {
       const entries = await call({ type: "get-entries" });
       const stored = entries.find(item => item.id === entry.id);
@@ -119,7 +119,8 @@ function entryRow(entry) {
   return div;
 }
 
-$("#file").onchange = e => importFile(e.target.files[0]).catch(err => setFeedback("#status", `Ошибка: ${err.message}`, "error"));
+function formattedError(err) { return t("error_prefix", { message: t(err.message) }); }
+$("#file").onchange = e => importFile(e.target.files[0]).catch(err => setFeedback("#status", formattedError(err), "error"));
 let pendingEntry = null;
 
 $("#add-single").onclick = () => {
@@ -128,7 +129,7 @@ $("#add-single").onclick = () => {
     $("#confirm-issuer").value = pendingEntry.issuer;
     $("#confirm-name").value = pendingEntry.name;
     $("#confirm-entry").showModal();
-  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
+  } catch (err) { setFeedback("#status", formattedError(err), "error"); }
 };
 
 $("#cancel-entry").onclick = () => {
@@ -145,15 +146,15 @@ $("#save-entry").onclick = async () => {
     entry.issuer = $("#confirm-issuer").value.trim() || entry.issuer;
     entry.name = $("#confirm-name").value.trim() || entry.name;
     const entries = await call({ type: "get-entries" });
-    if (entries.some(item => item.secret === entry.secret && item.name === entry.name)) throw new Error("Такая запись уже существует");
+    if (entries.some(item => item.secret === entry.secret && item.name === entry.name)) throw new Error("duplicate_entry");
     entries.push(entry);
     await call({ type: "save-entries", entries });
     $("#single").value = "";
     pendingEntry = null;
     $("#confirm-entry").close();
-    setFeedback("#status", `Добавлен TOTP: ${entry.issuer || entry.name}`, "success");
+    setFeedback("#status", t("added_totp", { name: entry.issuer || entry.name }), "success");
     render();
-  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
+  } catch (err) { setFeedback("#status", formattedError(err), "error"); }
 };
 $("#export").onclick = async () => {
   try {
@@ -167,8 +168,8 @@ $("#export").onclick = async () => {
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     const skipped = entries.length - supported.length;
-    setFeedback("#status", `Экспортировано записей: ${data.length}${skipped ? `; yaotp пропущено: ${skipped}` : ""}`, "success");
-  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
+    setFeedback("#status", t("export_result", { count: data.length, skipped: skipped ? t("skipped_yaotp", { count: skipped }) : "" }), "success");
+  } catch (err) { setFeedback("#status", formattedError(err), "error"); }
 };
 $("#bind").onclick = async () => {
   let domain = $("#domain").value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
@@ -188,7 +189,7 @@ async function securityAction(action) {
     await action();
     await render();
   } catch (err) {
-    setFeedback(status, `Ошибка: ${err.message}`, "error");
+    setFeedback(status, formattedError(err), "error");
   }
 }
 
@@ -199,7 +200,7 @@ function securitySuccess(message) {
 $("#setup-vault").onclick = () => securityAction(async () => {
   await call({ type: "setup-vault", password: $("#setup-password").value });
   $("#setup-password").value = "";
-  securitySuccess("Мастер-пароль создан, существующая база зашифрована");
+  securitySuccess(t("master_created"));
 });
 $("#options-unlock").onclick = () => securityAction(async () => {
   await call({ type: "unlock-vault", password: $("#options-password").value });
@@ -209,14 +210,32 @@ $("#options-password").onkeydown = event => { if (event.key === "Enter") $("#opt
 $("#lock-now").onclick = () => securityAction(() => call({ type: "lock-vault" }));
 $("#save-timeout").onclick = () => securityAction(async () => {
   await call({ type: "set-lock-minutes", minutes: Number($("#lock-minutes").value) });
-  securitySuccess("Время автоблокировки сохранено");
+  securitySuccess(t("timeout_saved"));
 });
 $("#change-password").onclick = () => securityAction(async () => {
   await call({ type: "change-password", currentPassword: $("#current-password").value, newPassword: $("#new-password").value });
   $("#current-password").value = "";
   $("#new-password").value = "";
-  securitySuccess("Мастер-пароль изменён");
+  securitySuccess(t("master_changed"));
 });
 
 chrome.runtime.onMessage.addListener(message => { if (message.type === "vault-state-changed") render().catch(() => {}); });
-render().catch(err => setFeedback("#security-status", `Ошибка: ${err.message}`, "error"));
+async function init() {
+  const { locale = "en" } = await chrome.storage.local.get("locale");
+  setLocale(locale);
+  $("#language").value = getLocale();
+  applyI18n();
+  document.title = `${t("app_name")} — ${t("settings")}`;
+  await render();
+}
+$("#language").onchange = async event => {
+  const locale = event.target.value === "ru" ? "ru" : "en";
+  await chrome.storage.local.set({ locale });
+  setLocale(locale);
+  applyI18n();
+  document.title = `${t("app_name")} — ${t("settings")}`;
+  setFeedback("#status", "", "info");
+  setFeedback("#security-status", "", "info");
+  await render();
+};
+init().catch(err => setFeedback("#security-status", formattedError(err), "error"));

@@ -4,7 +4,7 @@ let currentTab;
 
 async function call(message) {
   const response = await chrome.runtime.sendMessage(message);
-  if (!response?.ok) throw new Error(response?.error || "Ошибка расширения");
+  if (!response?.ok) throw new Error(response?.error || "unknown_request");
   return response.result;
 }
 
@@ -21,9 +21,7 @@ async function showState() {
   document.querySelector("#locked").hidden = !locked;
   document.querySelector("#unlocked").hidden = locked;
   document.querySelector("#lock").hidden = locked;
-  document.querySelector("#lock-message").textContent = state.configured
-    ? "Введите мастер-пароль"
-    : "Сначала создайте мастер-пароль в настройках";
+  document.querySelector("#lock-message").textContent = state.configured ? t("enter_master") : t("create_master_first");
   document.querySelector("#master-password").hidden = !state.configured;
   document.querySelector("#unlock").hidden = !state.configured;
   clearTimeout(timer);
@@ -54,7 +52,7 @@ async function tick() {
       button.querySelector("b").textContent = entry.issuer || entry.name;
       button.querySelector("small").textContent = entry.name;
       button.querySelector("em").textContent = entry.code;
-      button.querySelector("i").textContent = `${entry.secondsLeft}с`;
+      button.querySelector("i").textContent = `${entry.secondsLeft}${t("seconds_short")}`;
     }
   }
   timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 20);
@@ -77,10 +75,23 @@ document.querySelector("#unlock").onclick = async () => {
     await call({ type: "unlock-vault", password: document.querySelector("#master-password").value });
     document.querySelector("#master-password").value = "";
     await showState();
-  } catch (err) { error.textContent = err.message; }
+  } catch (err) { error.textContent = t(err.message); }
 };
 document.querySelector("#master-password").onkeydown = event => { if (event.key === "Enter") document.querySelector("#unlock").click(); };
 document.querySelector("#lock").onclick = async () => { await call({ type: "lock-vault" }); showState(); };
 document.querySelector("#settings").onclick = () => chrome.runtime.openOptionsPage();
 document.querySelector("#manage").onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL(`options.html?domain=${encodeURIComponent(currentHost)}`) });
-showState().catch(error => { document.querySelector("#unlock-error").textContent = error.message; });
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.locale) {
+    setLocale(changes.locale.newValue);
+    applyI18n();
+    showState();
+  }
+});
+async function init() {
+  const { locale = "en" } = await chrome.storage.local.get("locale");
+  setLocale(locale);
+  applyI18n();
+  await showState();
+}
+init().catch(error => { document.querySelector("#unlock-error").textContent = t(error.message); });

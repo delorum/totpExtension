@@ -1,5 +1,5 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head>
-<body class="popup"><header><div><strong>TOTP</strong><small id="host"></small></div><div class="header-actions"><button id="lock" title="Заблокировать" hidden>🔒</button><button id="settings" title="Настройки">⚙</button></div></header>
-<section id="locked" hidden><p id="lock-message">Введите мастер-пароль</p><input id="master-password" type="password" placeholder="Мастер-пароль"><button id="unlock" class="primary">Разблокировать</button><small id="unlock-error"></small></section>
-<div id="unlocked" hidden><main id="list"></main><p id="empty" hidden>Для этого сайта код не привязан.</p><footer><button id="manage">Привязать код к сайту</button></footer></div>
-<script src="popup.js"></script></body></html>
+<body class="popup"><header><div><strong>TOTP</strong><small id="host"></small></div><div class="header-actions"><button id="lock" data-i18n-title="lock" title="Lock" hidden>🔒</button><button id="settings" data-i18n-title="settings" title="Settings">⚙</button></div></header>
+<section id="locked" hidden><p id="lock-message" data-i18n="enter_master">Enter master password</p><input id="master-password" type="password" data-i18n-placeholder="master_password" placeholder="Master password"><button id="unlock" class="primary" data-i18n="unlock">Unlock</button><small id="unlock-error"></small></section>
+<div id="unlocked" hidden><main id="list"></main><p id="empty" data-i18n="no_code" hidden>No TOTP credential is associated with this website.</p><footer><button id="manage" data-i18n="associate_site">Associate a credential with this website</button></footer></div>
+<script src="i18n.js"></script><script src="popup.js"></script></body></html>

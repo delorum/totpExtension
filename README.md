@@ -24,6 +24,7 @@ The toolbar popup lists the credentials associated with the current hostname:
 - Export standard TOTP credentials to the same JSON format accepted by file import.
 - Encrypt the credential database with AES-256-GCM under a user-defined master password.
 - Change the master password, lock explicitly, or lock automatically after a configurable number of inactive minutes.
+- Switch the interface between English and Russian in Settings; English is the default.
 - Associate one or more credentials with each exact hostname.
 - Detect a single verification input or a group of 3–10 one-character inputs.
 - Display the code near a detected field and fill it on click.

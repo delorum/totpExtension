@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TOTP Подстановка",
-  "version": "0.2.0",
-  "description": "Локальное хранение и подстановка одноразовых TOTP-кодов.",
+  "name": "TOTP Autofill",
+  "version": "0.3.0",
+  "description": "Encrypted local storage and convenient autofill for one-time TOTP codes.",
   "permissions": ["storage", "activeTab", "tabs", "alarms"],
   "action": {
     "default_popup": "popup.html",

@@ -1,4 +1,4 @@
-importScripts("totp.js");
+importScripts("totp.js", "i18n.js");
 
 const ITERATIONS = 310000;
 const DEFAULT_LOCK_MINUTES = 15;
@@ -46,7 +46,7 @@ async function decryptVault(vault, key) {
     const entries = JSON.parse(decoder.decode(plaintext));
     if (!Array.isArray(entries)) throw new Error("Invalid vault");
     return entries;
-  } catch (_) { throw new Error("Неверный мастер-пароль"); }
+  } catch (_) { throw new Error("wrong_password"); }
 }
 
 async function keyFromPassword(password, vault) {
@@ -84,7 +84,7 @@ async function lockVault() {
 
 async function saveEncryptedEntries(entries) {
   const session = await unlockedSession(true);
-  if (!session) throw new Error("Расширение заблокировано");
+  if (!session) throw new Error("extension_locked");
   const key = await keyFromSession(session.vaultKey);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(JSON.stringify(entries)));
@@ -95,9 +95,9 @@ async function saveEncryptedEntries(entries) {
 }
 
 async function setupVault(password) {
-  if (!password) throw new Error("Введите мастер-пароль");
+  if (!password) throw new Error("password_required");
   const stored = await chrome.storage.local.get(["vault", "entries"]);
-  if (stored.vault) throw new Error("Мастер-пароль уже настроен");
+  if (stored.vault) throw new Error("already_configured");
   const entries = stored.entries || [];
   const { vault, rawKey } = await encryptEntries(entries, password);
   await chrome.storage.local.set({ vault, lockMinutes: DEFAULT_LOCK_MINUTES });
@@ -108,7 +108,7 @@ async function setupVault(password) {
 
 async function unlockVault(password) {
   const { vault } = await chrome.storage.local.get("vault");
-  if (!vault) throw new Error("Мастер-пароль ещё не настроен");
+  if (!vault) throw new Error("not_configured");
   const key = await keyFromPassword(password, vault);
   const entries = await decryptVault(vault, key);
   const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
@@ -117,9 +117,9 @@ async function unlockVault(password) {
 }
 
 async function changePassword(currentPassword, newPassword) {
-  if (!newPassword) throw new Error("Введите новый мастер-пароль");
+  if (!newPassword) throw new Error("password_required");
   const { vault } = await chrome.storage.local.get("vault");
-  if (!vault) throw new Error("Мастер-пароль ещё не настроен");
+  if (!vault) throw new Error("not_configured");
   const currentKey = await keyFromPassword(currentPassword, vault);
   const entries = await decryptVault(vault, currentKey);
   const encrypted = await encryptEntries(entries, newPassword);
@@ -166,25 +166,25 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
     switch (message.type) {
       case "vault-state": return vaultState();
-      case "setup-vault": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await setupVault(message.password); return vaultState();
-      case "unlock-vault": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await unlockVault(message.password); return vaultState();
-      case "lock-vault": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await lockVault(); return vaultState();
-      case "change-password": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await changePassword(message.currentPassword, message.newPassword); return vaultState();
+      case "setup-vault": if (!trustedSender(sender)) throw new Error("invalid_request"); await setupVault(message.password); return vaultState();
+      case "unlock-vault": if (!trustedSender(sender)) throw new Error("invalid_request"); await unlockVault(message.password); return vaultState();
+      case "lock-vault": if (!trustedSender(sender)) throw new Error("invalid_request"); await lockVault(); return vaultState();
+      case "change-password": if (!trustedSender(sender)) throw new Error("invalid_request"); await changePassword(message.currentPassword, message.newPassword); return vaultState();
       case "set-lock-minutes": {
-        if (!trustedSender(sender)) throw new Error("Недопустимый запрос");
+        if (!trustedSender(sender)) throw new Error("invalid_request");
         const minutes = Number(message.minutes);
-        if (!Number.isFinite(minutes) || minutes < 1) throw new Error("Укажите не меньше одной минуты");
+        if (!Number.isFinite(minutes) || minutes < 1) throw new Error("timeout_minimum");
         await chrome.storage.local.set({ lockMinutes: minutes });
         if (await unlockedSession(false)) await touchSession();
         return vaultState();
       }
       case "get-entries": {
-        if (!trustedSender(sender)) throw new Error("Недопустимый запрос");
+        if (!trustedSender(sender)) throw new Error("invalid_request");
         const session = await unlockedSession(true);
-        if (!session) throw new Error("Расширение заблокировано");
+        if (!session) throw new Error("extension_locked");
         return session.vaultEntries;
       }
-      case "save-entries": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await saveEncryptedEntries(message.entries); return { ok: true };
+      case "save-entries": if (!trustedSender(sender)) throw new Error("invalid_request"); await saveEncryptedEntries(message.entries); return { ok: true };
       case "site-codes": {
         let host = message.host;
         if (sender.tab?.url) {
@@ -192,7 +192,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         }
         return siteCodes(host, Boolean(message.touch));
       }
-      default: throw new Error("Неизвестный запрос");
+      default: throw new Error("unknown_request");
     }
   })().then(result => reply({ ok: true, result })).catch(error => reply({ ok: false, error: error.message }));
   return true;
@@ -209,7 +209,9 @@ async function updateIndicator(tabId, url) {
   const available = await hasTotpForUrl(url);
   await chrome.action.setBadgeBackgroundColor({ tabId, color: available ? "#188038" : "#777777" }).catch(() => {});
   await chrome.action.setBadgeText({ tabId, text: available ? "✓" : "" }).catch(() => {});
-  await chrome.action.setTitle({ tabId, title: available ? "TOTP-код доступен для этого сайта" : "Нет доступного TOTP-кода или расширение заблокировано" }).catch(() => {});
+  const { locale = "en" } = await chrome.storage.local.get("locale");
+  setLocale(locale);
+  await chrome.action.setTitle({ tabId, title: available ? t("code_available") : t("no_code_available") }).catch(() => {});
 }
 
 async function updateAllIndicators() {
