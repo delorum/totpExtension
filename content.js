@@ -52,8 +52,8 @@ function removeSuggestion() {
 
 async function matchingEntries() {
   const host = location.hostname.toLowerCase();
-  const response = await chrome.runtime.sendMessage({ type: "site-code", host }).catch(() => null);
-  return response?.ok && response.result ? [response.result] : [];
+  const response = await chrome.runtime.sendMessage({ type: "site-codes", host }).catch(() => null);
+  return response?.ok && Array.isArray(response.result) ? response.result : [];
 }
 
 async function showSuggestion() {
@@ -85,12 +85,12 @@ async function showSuggestion() {
     const code = entry.code;
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `TOTP: ${code}`;
+    button.textContent = entries.length > 1 ? `TOTP · ${entry.name || entry.issuer}: ${code}` : `TOTP: ${code}`;
     Object.assign(button.style, { border: "0", borderRadius: "7px", padding: "9px 11px", background: "#2878e3", color: "white", cursor: "pointer", font: "inherit", textAlign: "left" });
     button.addEventListener("mousedown", event => event.preventDefault());
     button.addEventListener("click", async () => {
-      const response = await chrome.runtime.sendMessage({ type: "site-code", host: location.hostname, touch: true }).catch(() => null);
-      const currentCode = response?.result?.code;
+      const response = await chrome.runtime.sendMessage({ type: "site-codes", host: location.hostname, touch: true }).catch(() => null);
+      const currentCode = response?.result?.find(item => item.id === entry.id)?.code;
       if (!currentCode) { removeSuggestion(); return; }
       const currentGroup = otpFieldGroup();
       if (currentGroup.length) {

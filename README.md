@@ -14,7 +14,7 @@ It was created for authentication pages where repeatedly opening a phone authent
 - Export standard TOTP credentials to the same JSON format accepted by file import.
 - Encrypt the credential database with AES-256-GCM under a user-defined master password.
 - Change the master password, lock explicitly, or lock automatically after a configurable number of inactive minutes.
-- Associate exactly one credential with each exact hostname; saving another credential replaces the previous association.
+- Associate one or more credentials with each exact hostname.
 - Detect a single verification input or a group of 3–10 one-character inputs.
 - Display the code near a detected field and fill it on click.
 - Show a green toolbar badge when a credential is available for the current hostname.

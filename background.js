@@ -137,20 +137,22 @@ async function vaultState() {
   };
 }
 
-function bindingId(binding) { return Array.isArray(binding) ? binding.at(-1) : binding; }
+function bindingIds(binding) { return Array.isArray(binding) ? binding : (binding ? [binding] : []); }
 
-async function siteEntry(host, touch = false) {
+async function siteEntries(host, touch = false) {
   const session = await unlockedSession(touch);
-  if (!session) return null;
+  if (!session) return [];
   const { bindings = {} } = await chrome.storage.local.get("bindings");
-  const id = bindingId(bindings[String(host || "").toLowerCase()]);
-  return session.vaultEntries.find(entry => entry.id === id && entry.type === "totp") || null;
+  const ids = bindingIds(bindings[String(host || "").toLowerCase()]);
+  return session.vaultEntries.filter(entry => ids.includes(entry.id) && entry.type === "totp");
 }
 
-async function siteCode(host, touch = false) {
-  const entry = await siteEntry(host, touch);
-  if (!entry) return null;
-  return { id: entry.id, issuer: entry.issuer, name: entry.name, code: await generateTotp(entry), secondsLeft: secondsLeft(entry) };
+async function siteCodes(host, touch = false) {
+  const entries = await siteEntries(host, touch);
+  return Promise.all(entries.map(async entry => ({
+    id: entry.id, issuer: entry.issuer, name: entry.name,
+    code: await generateTotp(entry), secondsLeft: secondsLeft(entry)
+  })));
 }
 
 function trustedSender(sender) {
@@ -183,12 +185,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         return session.vaultEntries;
       }
       case "save-entries": if (!trustedSender(sender)) throw new Error("Недопустимый запрос"); await saveEncryptedEntries(message.entries); return { ok: true };
-      case "site-code": {
+      case "site-codes": {
         let host = message.host;
         if (sender.tab?.url) {
           try { host = new URL(sender.tab.url).hostname; } catch (_) { host = ""; }
         }
-        return siteCode(host, Boolean(message.touch));
+        return siteCodes(host, Boolean(message.touch));
       }
       default: throw new Error("Неизвестный запрос");
     }
@@ -199,7 +201,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 async function hasTotpForUrl(urlValue) {
   let host;
   try { host = new URL(urlValue).hostname.toLowerCase(); } catch (_) { return false; }
-  return Boolean(await siteEntry(host));
+  return (await siteEntries(host)).length > 0;
 }
 
 async function updateIndicator(tabId, url) {

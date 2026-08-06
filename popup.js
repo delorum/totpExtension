@@ -31,36 +31,43 @@ async function showState() {
 }
 
 async function tick() {
-  const entry = await call({ type: "site-code", host: currentHost, touch: true }).catch(() => null);
+  const entries = await call({ type: "site-codes", host: currentHost, touch: true }).catch(() => null);
   const list = document.querySelector("#list");
-  document.querySelector("#empty").hidden = Boolean(entry);
-  if (!entry) {
+  document.querySelector("#empty").hidden = Boolean(entries?.length);
+  if (!entries?.length) {
     list.replaceChildren();
   } else {
-    let button = list.querySelector(".code");
-    if (!button) {
-      button = document.createElement("button");
-      button.className = "code";
-      button.innerHTML = "<span><b></b><small></small></span><em></em><i></i>";
-      button.onclick = fillCurrentCode;
-      list.replaceChildren(button);
+    const activeIds = new Set(entries.map(entry => entry.id));
+    for (const button of list.querySelectorAll(".code")) {
+      if (!activeIds.has(button.dataset.entryId)) button.remove();
     }
-    button.querySelector("b").textContent = entry.issuer || entry.name;
-    button.querySelector("small").textContent = entry.name;
-    button.querySelector("em").textContent = entry.code;
-    button.querySelector("i").textContent = `${entry.secondsLeft}с`;
+    for (const entry of entries) {
+      let button = [...list.querySelectorAll(".code")].find(item => item.dataset.entryId === entry.id);
+      if (!button) {
+        button = document.createElement("button");
+        button.className = "code";
+        button.dataset.entryId = entry.id;
+        button.innerHTML = "<span><b></b><small></small></span><em></em><i></i>";
+        button.onclick = () => fillCurrentCode(entry.id, button);
+        list.append(button);
+      }
+      button.querySelector("b").textContent = entry.issuer || entry.name;
+      button.querySelector("small").textContent = entry.name;
+      button.querySelector("em").textContent = entry.code;
+      button.querySelector("i").textContent = `${entry.secondsLeft}с`;
+    }
   }
   timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 20);
 }
 
-async function fillCurrentCode() {
-  const entry = await call({ type: "site-code", host: currentHost, touch: true }).catch(() => null);
+async function fillCurrentCode(entryId, button) {
+  const entries = await call({ type: "site-codes", host: currentHost, touch: true }).catch(() => null);
+  const entry = entries?.find(item => item.id === entryId);
   if (!entry) return showState();
   const result = await chrome.tabs.sendMessage(currentTab.id, { type: "fill-totp", code: entry.code }).catch(() => null);
   if (!result?.ok) await navigator.clipboard.writeText(entry.code);
-  const button = document.querySelector(".code");
-  button?.classList.add("done");
-  setTimeout(() => button?.classList.remove("done"), 600);
+  button.classList.add("done");
+  setTimeout(() => button.classList.remove("done"), 600);
 }
 
 document.querySelector("#unlock").onclick = async () => {

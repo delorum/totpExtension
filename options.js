@@ -76,12 +76,20 @@ async function render() {
   $("#entry").replaceChildren(...entries.filter(e => e.type === "totp").map(e => new Option(`${e.issuer} — ${e.name}`, e.id)));
   $("#entries").replaceChildren(...entries.map(entryRow));
   const byId = Object.fromEntries(entries.map(e => [e.id, e]));
-  $("#bindings").replaceChildren(...Object.entries(bindings).map(([domain, binding]) => {
-    const id = Array.isArray(binding) ? binding.at(-1) : binding;
+  $("#bindings").replaceChildren(...Object.entries(bindings).flatMap(([domain, binding]) => {
+    const ids = Array.isArray(binding) ? binding : (binding ? [binding] : []);
+    return ids.map(id => {
     const div = document.createElement("div"); div.className = "row";
-    const text = document.createElement("span"); text.textContent = `${domain} → ${byId[id]?.issuer || byId[id]?.name || "удалённый код"}`;
-    const del = document.createElement("button"); del.textContent = "Удалить"; del.onclick = async () => { delete bindings[domain]; await chrome.storage.local.set({ bindings }); render(); };
+    const linked = byId[id];
+    const label = linked ? [linked.issuer, linked.name].filter(Boolean).join(" — ") : "удалённый код";
+    const text = document.createElement("span"); text.textContent = `${domain} → ${label}`;
+    const del = document.createElement("button"); del.textContent = "Удалить"; del.onclick = async () => {
+      const remaining = ids.filter(item => item !== id);
+      if (remaining.length) bindings[domain] = remaining; else delete bindings[domain];
+      await chrome.storage.local.set({ bindings }); render();
+    };
     div.append(text, del); return div;
+    });
   }));
 }
 
@@ -166,7 +174,8 @@ $("#bind").onclick = async () => {
   let domain = $("#domain").value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
   const id = $("#entry").value; if (!domain || !id) return;
   const { bindings = {} } = await chrome.storage.local.get("bindings");
-  bindings[domain] = id;
+  const current = Array.isArray(bindings[domain]) ? bindings[domain] : (bindings[domain] ? [bindings[domain]] : []);
+  bindings[domain] = [...new Set([...current, id])];
   await chrome.storage.local.set({ bindings }); $("#domain").value = ""; render();
 };
 const requestedDomain = new URLSearchParams(location.search).get("domain");
