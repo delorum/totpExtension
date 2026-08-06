@@ -53,8 +53,9 @@ function removeSuggestion() {
 async function matchingEntries() {
   const host = location.hostname.toLowerCase();
   const { entries = [], bindings = {} } = await chrome.storage.local.get(["entries", "bindings"]);
-  const ids = bindings[host] || [];
-  return entries.filter(entry => ids.includes(entry.id) && entry.type === "totp");
+  const binding = bindings[host];
+  const id = Array.isArray(binding) ? binding.at(-1) : binding;
+  return entries.filter(entry => entry.id === id && entry.type === "totp");
 }
 
 async function showSuggestion() {

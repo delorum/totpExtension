@@ -12,7 +12,7 @@ It was created for authentication pages where repeatedly opening a phone authent
 - Add one credential from an `otpauth://totp/...` URI.
 - Edit the local service and account labels without changing generated codes.
 - Export standard TOTP credentials to the same JSON format accepted by file import.
-- Associate one or more credentials with exact hostnames.
+- Associate exactly one credential with each exact hostname; saving another credential replaces the previous association.
 - Detect a single verification input or a group of 3–10 one-character inputs.
 - Display the code near a detected field and fill it on click.
 - Show a green toolbar badge when a credential is available for the current hostname.

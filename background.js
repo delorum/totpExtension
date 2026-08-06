@@ -2,8 +2,9 @@ async function hasTotpForUrl(urlValue) {
   let host;
   try { host = new URL(urlValue).hostname.toLowerCase(); } catch (_) { return false; }
   const { entries = [], bindings = {} } = await chrome.storage.local.get(["entries", "bindings"]);
-  const ids = bindings[host] || [];
-  return entries.some(entry => ids.includes(entry.id) && entry.type === "totp");
+  const binding = bindings[host];
+  const id = Array.isArray(binding) ? binding.at(-1) : binding;
+  return entries.some(entry => entry.id === id && entry.type === "totp");
 }
 
 async function updateIndicator(tabId, url) {

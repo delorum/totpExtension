@@ -11,8 +11,9 @@ async function render() {
   try { host = new URL(tab.url).hostname; } catch (_) {}
   document.querySelector("#host").textContent = host;
   const { entries = [], bindings = {} } = await chrome.storage.local.get(["entries", "bindings"]);
-  const ids = bindings[host] || [];
-  const matches = entries.filter(e => ids.includes(e.id) && e.type === "totp");
+  const binding = bindings[host];
+  const id = Array.isArray(binding) ? binding.at(-1) : binding;
+  const matches = entries.filter(e => e.id === id && e.type === "totp");
   displayedEntries = matches;
   document.querySelector("#empty").hidden = matches.length > 0;
   const list = document.querySelector("#list");
