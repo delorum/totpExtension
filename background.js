@@ -153,7 +153,12 @@ async function siteCode(host, touch = false) {
   return { id: entry.id, issuer: entry.issuer, name: entry.name, code: await generateTotp(entry), secondsLeft: secondsLeft(entry) };
 }
 
-function trustedSender(sender) { return !sender.tab; }
+function trustedSender(sender) {
+  try {
+    const url = new URL(sender.url || sender.origin || "");
+    return url.protocol === "chrome-extension:" && url.hostname === chrome.runtime.id;
+  } catch (_) { return false; }
+}
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
