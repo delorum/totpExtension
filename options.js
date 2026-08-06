@@ -6,6 +6,13 @@ async function call(message) {
   return response.result;
 }
 
+function setFeedback(target, message, type = "info") {
+  const element = typeof target === "string" ? $(target) : target;
+  element.classList.remove("feedback-success", "feedback-error", "feedback-info");
+  element.classList.add(`feedback-${type}`);
+  element.textContent = message;
+}
+
 function parseEntry(raw, index) {
   let url;
   try { url = new URL(raw.techInfo); } catch (_) {}
@@ -52,7 +59,7 @@ async function importFile(file) {
   if (!Array.isArray(json)) throw new Error("Ожидался JSON-массив");
   const entries = json.map(parseEntry).filter(e => e.secret);
   await call({ type: "save-entries", entries });
-  $("#status").textContent = `Импортировано: ${entries.filter(e => e.type === "totp").length}; неподдерживаемых: ${entries.filter(e => e.type !== "totp").length}`;
+  setFeedback("#status", `Импортировано: ${entries.filter(e => e.type === "totp").length}; неподдерживаемых: ${entries.filter(e => e.type !== "totp").length}`, "success");
   await render();
 }
 
@@ -104,7 +111,7 @@ function entryRow(entry) {
   return div;
 }
 
-$("#file").onchange = e => importFile(e.target.files[0]).catch(err => $("#status").textContent = `Ошибка: ${err.message}`);
+$("#file").onchange = e => importFile(e.target.files[0]).catch(err => setFeedback("#status", `Ошибка: ${err.message}`, "error"));
 let pendingEntry = null;
 
 $("#add-single").onclick = () => {
@@ -113,7 +120,7 @@ $("#add-single").onclick = () => {
     $("#confirm-issuer").value = pendingEntry.issuer;
     $("#confirm-name").value = pendingEntry.name;
     $("#confirm-entry").showModal();
-  } catch (err) { $("#status").textContent = `Ошибка: ${err.message}`; }
+  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
 };
 
 $("#cancel-entry").onclick = () => {
@@ -136,22 +143,24 @@ $("#save-entry").onclick = async () => {
     $("#single").value = "";
     pendingEntry = null;
     $("#confirm-entry").close();
-    $("#status").textContent = `Добавлен TOTP: ${entry.issuer || entry.name}`;
+    setFeedback("#status", `Добавлен TOTP: ${entry.issuer || entry.name}`, "success");
     render();
-  } catch (err) { $("#status").textContent = `Ошибка: ${err.message}`; }
+  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
 };
 $("#export").onclick = async () => {
-  const entries = await call({ type: "get-entries" });
-  const supported = entries.filter(entry => entry.type === "totp");
-  const data = supported.map(entry => ({ name: entry.name, secret: entry.secret, techInfo: entryUri(entry) }));
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `totp_backup_${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  const skipped = entries.length - supported.length;
-  $("#status").textContent = `Экспортировано записей: ${data.length}${skipped ? `; yaotp пропущено: ${skipped}` : ""}`;
+  try {
+    const entries = await call({ type: "get-entries" });
+    const supported = entries.filter(entry => entry.type === "totp");
+    const data = supported.map(entry => ({ name: entry.name, secret: entry.secret, techInfo: entryUri(entry) }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `totp_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    const skipped = entries.length - supported.length;
+    setFeedback("#status", `Экспортировано записей: ${data.length}${skipped ? `; yaotp пропущено: ${skipped}` : ""}`, "success");
+  } catch (err) { setFeedback("#status", `Ошибка: ${err.message}`, "error"); }
 };
 $("#bind").onclick = async () => {
   let domain = $("#domain").value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
@@ -165,21 +174,17 @@ if (requestedDomain) $("#domain").value = requestedDomain;
 
 async function securityAction(action) {
   const status = $("#security-status");
-  status.textContent = "";
-  status.classList.remove("success");
+  setFeedback(status, "", "info");
   try {
     await action();
     await render();
   } catch (err) {
-    status.classList.remove("success");
-    status.textContent = `Ошибка: ${err.message}`;
+    setFeedback(status, `Ошибка: ${err.message}`, "error");
   }
 }
 
 function securitySuccess(message) {
-  const status = $("#security-status");
-  status.classList.add("success");
-  status.textContent = message;
+  setFeedback("#security-status", message, "success");
 }
 
 $("#setup-vault").onclick = () => securityAction(async () => {
@@ -205,4 +210,4 @@ $("#change-password").onclick = () => securityAction(async () => {
 });
 
 chrome.runtime.onMessage.addListener(message => { if (message.type === "vault-state-changed") render().catch(() => {}); });
-render().catch(err => $("#security-status").textContent = `Ошибка: ${err.message}`);
+render().catch(err => setFeedback("#security-status", `Ошибка: ${err.message}`, "error"));
