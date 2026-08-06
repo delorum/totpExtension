@@ -1,5 +1,11 @@
 const $ = s => document.querySelector(s);
 
+async function call(message) {
+  const response = await chrome.runtime.sendMessage(message);
+  if (!response?.ok) throw new Error(response?.error || "Ошибка расширения");
+  return response.result;
+}
+
 function parseEntry(raw, index) {
   let url;
   try { url = new URL(raw.techInfo); } catch (_) {}
@@ -45,13 +51,21 @@ async function importFile(file) {
   const json = JSON.parse(await file.text());
   if (!Array.isArray(json)) throw new Error("Ожидался JSON-массив");
   const entries = json.map(parseEntry).filter(e => e.secret);
-  await chrome.storage.local.set({ entries });
+  await call({ type: "save-entries", entries });
   $("#status").textContent = `Импортировано: ${entries.filter(e => e.type === "totp").length}; неподдерживаемых: ${entries.filter(e => e.type !== "totp").length}`;
   await render();
 }
 
 async function render() {
-  const { entries = [], bindings = {} } = await chrome.storage.local.get(["entries", "bindings"]);
+  const state = await call({ type: "vault-state" });
+  $("#vault-unconfigured").hidden = state.configured;
+  $("#vault-locked").hidden = !state.configured || state.unlocked;
+  $("#vault-unlocked").hidden = !state.unlocked;
+  $("#vault-content").hidden = !state.unlocked;
+  $("#lock-minutes").value = state.lockMinutes;
+  if (!state.unlocked) return;
+  const entries = await call({ type: "get-entries" });
+  const { bindings = {} } = await chrome.storage.local.get("bindings");
   $("#entry").replaceChildren(...entries.filter(e => e.type === "totp").map(e => new Option(`${e.issuer} — ${e.name}`, e.id)));
   $("#entries").replaceChildren(...entries.map(entryRow));
   const byId = Object.fromEntries(entries.map(e => [e.id, e]));
@@ -75,12 +89,12 @@ function entryRow(entry) {
     const save = document.createElement("button"); save.textContent = "Сохранить"; save.className = "save";
     const cancel = document.createElement("button"); cancel.textContent = "Отмена";
     save.onclick = async () => {
-      const { entries = [] } = await chrome.storage.local.get("entries");
+      const entries = await call({ type: "get-entries" });
       const stored = entries.find(item => item.id === entry.id);
       if (!stored) return;
       stored.issuer = issuer.value.trim();
       stored.name = name.value.trim() || stored.name;
-      await chrome.storage.local.set({ entries });
+      await call({ type: "save-entries", entries });
       render();
     };
     cancel.onclick = render;
@@ -115,10 +129,10 @@ $("#save-entry").onclick = async () => {
     const entry = pendingEntry;
     entry.issuer = $("#confirm-issuer").value.trim() || entry.issuer;
     entry.name = $("#confirm-name").value.trim() || entry.name;
-    const { entries = [] } = await chrome.storage.local.get("entries");
+    const entries = await call({ type: "get-entries" });
     if (entries.some(item => item.secret === entry.secret && item.name === entry.name)) throw new Error("Такая запись уже существует");
     entries.push(entry);
-    await chrome.storage.local.set({ entries });
+    await call({ type: "save-entries", entries });
     $("#single").value = "";
     pendingEntry = null;
     $("#confirm-entry").close();
@@ -127,7 +141,7 @@ $("#save-entry").onclick = async () => {
   } catch (err) { $("#status").textContent = `Ошибка: ${err.message}`; }
 };
 $("#export").onclick = async () => {
-  const { entries = [] } = await chrome.storage.local.get("entries");
+  const entries = await call({ type: "get-entries" });
   const supported = entries.filter(entry => entry.type === "totp");
   const data = supported.map(entry => ({ name: entry.name, secret: entry.secret, techInfo: entryUri(entry) }));
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -148,4 +162,37 @@ $("#bind").onclick = async () => {
 };
 const requestedDomain = new URLSearchParams(location.search).get("domain");
 if (requestedDomain) $("#domain").value = requestedDomain;
-render();
+
+async function securityAction(action) {
+  const status = $("#security-status");
+  status.textContent = "";
+  try {
+    await action();
+    await render();
+  } catch (err) { status.textContent = `Ошибка: ${err.message}`; }
+}
+
+$("#setup-vault").onclick = () => securityAction(async () => {
+  await call({ type: "setup-vault", password: $("#setup-password").value });
+  $("#setup-password").value = "";
+  $("#security-status").textContent = "Мастер-пароль создан, существующая база зашифрована";
+});
+$("#options-unlock").onclick = () => securityAction(async () => {
+  await call({ type: "unlock-vault", password: $("#options-password").value });
+  $("#options-password").value = "";
+});
+$("#options-password").onkeydown = event => { if (event.key === "Enter") $("#options-unlock").click(); };
+$("#lock-now").onclick = () => securityAction(() => call({ type: "lock-vault" }));
+$("#save-timeout").onclick = () => securityAction(async () => {
+  await call({ type: "set-lock-minutes", minutes: Number($("#lock-minutes").value) });
+  $("#security-status").textContent = "Время автоблокировки сохранено";
+});
+$("#change-password").onclick = () => securityAction(async () => {
+  await call({ type: "change-password", currentPassword: $("#current-password").value, newPassword: $("#new-password").value });
+  $("#current-password").value = "";
+  $("#new-password").value = "";
+  $("#security-status").textContent = "Мастер-пароль изменён";
+});
+
+chrome.runtime.onMessage.addListener(message => { if (message.type === "vault-state-changed") render().catch(() => {}); });
+render().catch(err => $("#security-status").textContent = `Ошибка: ${err.message}`);

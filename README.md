@@ -12,6 +12,8 @@ It was created for authentication pages where repeatedly opening a phone authent
 - Add one credential from an `otpauth://totp/...` URI.
 - Edit the local service and account labels without changing generated codes.
 - Export standard TOTP credentials to the same JSON format accepted by file import.
+- Encrypt the credential database with AES-256-GCM under a user-defined master password.
+- Change the master password, lock explicitly, or lock automatically after a configurable number of inactive minutes.
 - Associate exactly one credential with each exact hostname; saving another credential replaces the previous association.
 - Detect a single verification input or a group of 3–10 one-character inputs.
 - Display the code near a detected field and fill it on click.
@@ -27,6 +29,8 @@ It was created for authentication pages where repeatedly opening a phone authent
 4. Select **Load unpacked extension** and choose the repository directory.
 5. Open the extension settings and import a backup or add an `otpauth://totp` URI.
 6. Associate a credential with the required exact hostname, for example `esia.gosuslugi.ru`.
+
+On the first run after installation or upgrade, open the settings and create a master password. Existing plaintext credentials from an earlier version are encrypted during this migration. There are no password-complexity requirements, but a strong unique password is recommended. A forgotten master password cannot be recovered; restore the database by importing a backup into a fresh vault.
 
 The easiest way to create an association is directly from the website page that displays the one-time-code form: open the extension popup and select **Associate a credential with this website**. The exact hostname of that page will be filled in automatically.
 
@@ -50,10 +54,13 @@ Export produces the same structure. The proprietary `otpauth://yaotp` scheme is 
 
 ## Security model
 
-- Credentials are stored in `chrome.storage.local` in the browser profile.
+- The credential database is encrypted with AES-256-GCM before it is stored in `chrome.storage.local`.
+- PBKDF2-HMAC-SHA-256 with a random salt and 310,000 iterations derives the encryption key from the master password.
+- While unlocked, the key and decrypted entries live in `chrome.storage.session`; they are removed by explicit lock, inactivity timeout, and browser restart.
 - TOTP calculation happens locally; the extension does not make network requests.
+- Content scripts cannot access extension storage or TOTP secrets. They request only the current short-lived code from the service worker.
 - A code is written into the page only after the user clicks the suggestion or popup entry.
-- Storage is **not encrypted by this extension**. A user or malicious program with access to the browser profile may be able to read the secrets.
+- Encryption protects a copied browser profile or offline disk data, but it does not protect an unlocked browser from malware, memory inspection, or keylogging.
 - Imported and exported backup files contain plaintext TOTP secrets and should be protected like passwords or recovery codes.
 
 Using the same standard TOTP secret in this extension and a phone authenticator does not invalidate either copy. Both independently calculate the same time-based code. Removing or rotating the TOTP credential on the service itself will invalidate all copies.

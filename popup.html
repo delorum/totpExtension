@@ -1,5 +1,5 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head>
-<body class="popup"><header><div><strong>TOTP</strong><small id="host"></small></div><button id="settings" title="Настройки">⚙</button></header>
-<main id="list"></main><p id="empty" hidden>Для этого сайта код не привязан.</p>
-<footer><button id="manage">Привязать код к сайту</button></footer>
-<script src="totp.js"></script><script src="popup.js"></script></body></html>
+<body class="popup"><header><div><strong>TOTP</strong><small id="host"></small></div><div class="header-actions"><button id="lock" title="Заблокировать" hidden>🔒</button><button id="settings" title="Настройки">⚙</button></div></header>
+<section id="locked" hidden><p id="lock-message">Введите мастер-пароль</p><input id="master-password" type="password" placeholder="Мастер-пароль"><button id="unlock" class="primary">Разблокировать</button><small id="unlock-error"></small></section>
+<div id="unlocked" hidden><main id="list"></main><p id="empty" hidden>Для этого сайта код не привязан.</p><footer><button id="manage">Привязать код к сайту</button></footer></div>
+<script src="popup.js"></script></body></html>
