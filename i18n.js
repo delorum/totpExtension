@@ -27,7 +27,8 @@ const MESSAGES = {
     skipped_yaotp: "; yaotp skipped: {count}", error_prefix: "Error: {message}",
     master_created: "Master password created; the database is encrypted", timeout_saved: "Auto-lock timeout saved",
     master_changed: "Master password changed", association_saved: "Website association added",
-    code_available: "A TOTP code is available for this website", no_code_available: "No TOTP code is available or the extension is locked", seconds_short: "s"
+    code_available: "A TOTP code is available for this website", no_code_available: "No TOTP code is available or the extension is locked", seconds_short: "s",
+    all_codes: "All credentials", copy: "Copy", copied: "Copied", no_credentials: "No TOTP credentials in the vault."
   },
   ru: {
     app_name: "TOTP Подстановка", settings: "Настройки", lock: "Заблокировать", unlock: "Разблокировать",
@@ -57,7 +58,8 @@ const MESSAGES = {
     skipped_yaotp: "; yaotp пропущено: {count}", error_prefix: "Ошибка: {message}",
     master_created: "Мастер-пароль создан, существующая база зашифрована", timeout_saved: "Время автоблокировки сохранено",
     master_changed: "Мастер-пароль изменён", association_saved: "Привязка к сайту добавлена",
-    code_available: "TOTP-код доступен для этого сайта", no_code_available: "Нет доступного TOTP-кода или расширение заблокировано", seconds_short: "с"
+    code_available: "TOTP-код доступен для этого сайта", no_code_available: "Нет доступного TOTP-кода или расширение заблокировано", seconds_short: "с",
+    all_codes: "Все коды", copy: "Копировать", copied: "Скопировано", no_credentials: "В хранилище нет TOTP-кодов."
   }
 };
 

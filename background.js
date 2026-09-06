@@ -155,6 +155,16 @@ async function siteCodes(host, touch = false) {
   })));
 }
 
+async function allCodes(touch = false) {
+  const session = await unlockedSession(touch);
+  if (!session) return [];
+  const entries = session.vaultEntries.filter(entry => entry.type === "totp");
+  return Promise.all(entries.map(async entry => ({
+    id: entry.id, issuer: entry.issuer, name: entry.name,
+    code: await generateTotp(entry), secondsLeft: secondsLeft(entry)
+  })));
+}
+
 function trustedSender(sender) {
   try {
     const url = new URL(sender.url || sender.origin || "");
@@ -191,6 +201,10 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
           try { host = new URL(sender.tab.url).hostname; } catch (_) { host = ""; }
         }
         return siteCodes(host, Boolean(message.touch));
+      }
+      case "all-codes": {
+        if (!trustedSender(sender)) throw new Error("invalid_request");
+        return allCodes(Boolean(message.touch));
       }
       default: throw new Error("unknown_request");
     }

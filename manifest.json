@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TOTP Autofill",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Encrypted local storage and convenient autofill for one-time TOTP codes.",
   "permissions": ["storage", "activeTab", "tabs", "alarms"],
   "action": {

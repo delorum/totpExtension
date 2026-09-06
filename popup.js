@@ -29,6 +29,8 @@ async function showState() {
 }
 
 async function tick() {
+  const state = await call({ type: "vault-state" }).catch(() => null);
+  if (!state?.unlocked) { await showState(); return; }
   const entries = await call({ type: "site-codes", host: currentHost, touch: true }).catch(() => null);
   const list = document.querySelector("#list");
   document.querySelector("#empty").hidden = Boolean(entries?.length);
@@ -55,7 +57,44 @@ async function tick() {
       button.querySelector("i").textContent = `${entry.secondsLeft}${t("seconds_short")}`;
     }
   }
+  if (document.querySelector("#all-codes").open) await renderAllCodes();
   timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 20);
+}
+
+async function renderAllCodes() {
+  const entries = await call({ type: "all-codes", touch: true }).catch(() => null);
+  if (!entries) return showState();
+  const list = document.querySelector("#all-list");
+  document.querySelector("#all-empty").hidden = entries.length > 0;
+  const activeIds = new Set(entries.map(entry => entry.id));
+  for (const row of list.querySelectorAll(".all-code")) {
+    if (!activeIds.has(row.dataset.entryId)) row.remove();
+  }
+  for (const entry of entries) {
+    let row = [...list.querySelectorAll(".all-code")].find(item => item.dataset.entryId === entry.id);
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "all-code";
+      row.dataset.entryId = entry.id;
+      row.innerHTML = "<span><b></b><small></small></span><em></em><i></i><button type=\"button\"></button>";
+      list.append(row);
+    }
+    row.querySelector("b").textContent = entry.issuer || entry.name;
+    row.querySelector("small").textContent = entry.name;
+    row.querySelector("em").textContent = entry.code;
+    row.querySelector("i").textContent = `${entry.secondsLeft}${t("seconds_short")}`;
+    const copy = row.querySelector("button");
+    if (!copy.classList.contains("copied")) copy.textContent = t("copy");
+    copy.onclick = async () => {
+      const fresh = await call({ type: "all-codes", touch: true }).catch(() => []);
+      const code = fresh.find(item => item.id === entry.id)?.code;
+      if (!code) return;
+      await navigator.clipboard.writeText(code);
+      copy.textContent = t("copied");
+      copy.classList.add("copied");
+      setTimeout(() => { copy.classList.remove("copied"); copy.textContent = t("copy"); }, 1000);
+    };
+  }
 }
 
 async function fillCurrentCode(entryId, button) {
@@ -81,6 +120,7 @@ document.querySelector("#master-password").onkeydown = event => { if (event.key 
 document.querySelector("#lock").onclick = async () => { await call({ type: "lock-vault" }); showState(); };
 document.querySelector("#settings").onclick = () => chrome.runtime.openOptionsPage();
 document.querySelector("#manage").onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL(`options.html?domain=${encodeURIComponent(currentHost)}`) });
+document.querySelector("#all-codes").ontoggle = event => { if (event.target.open) renderAllCodes(); };
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.locale) {
     setLocale(changes.locale.newValue);

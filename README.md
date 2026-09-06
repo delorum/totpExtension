@@ -28,6 +28,7 @@ The toolbar popup lists the credentials associated with the current hostname:
 - Associate one or more credentials with each exact hostname.
 - Detect a single verification input or a group of 3–10 one-character inputs.
 - Display the code near a detected field and fill it on click.
+- Expand an **All credentials** section in the popup to view, copy, and track the timer for any TOTP code, including credentials not associated with the current website.
 - Show a green toolbar badge when a credential is available for the current hostname.
 - Run field detection only on hostnames that have an association.
 - Generate SHA-1, SHA-256, and SHA-512 TOTP codes locally with the Web Crypto API.
